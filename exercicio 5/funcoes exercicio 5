@@ -1,0 +1,48 @@
+########## Exercicio 5 ##########
+
+def tf(termo,documento):
+    c = 0
+    for elem in documento:
+        if termo == elem:
+            c += 1 
+    return c
+
+def idf(palavra,conj):
+    num_docs = len(conj) + 1
+    
+    num_docs_c_palavra = 1 # em vez de, no fim, se somar 1, começa-se logo a contagem com 1
+    for d in conj:
+        if palavra in d:
+            num_docs_c_palavra += 1
+    
+    idf = np.log10(num_docs/num_docs_c_palavra) + 1
+    return idf
+
+def tf_idf(termo,documento,conj):
+    resultado = tf(termo,documento) * idf(termo,conj)
+    return resultado
+
+
+def similaridade_cosseno(query,doc):
+    #print("query_tfidf shape:", query.shape)
+    #print("document_tfidf shape:", document_tfidf.shape)
+    produto_escalar = np.dot(query, doc) 
+    norma_query = np.linalg.norm(query)
+    norma_doc = np.linalg.norm(doc)
+    res = produto_escalar / (norma_query * norma_doc)
+    return res
+
+def vetor_tfidf(query,docs):
+    conj = []
+    for doc in docs:
+        doc = doc.split()
+        conj.append(doc)
+    palavras_unicas = list(set(query.split() + [p for doc in conj for p in doc]))
+    tfidf_vetor_query = [tf_idf(pal,query.split(),conj) for pal in palavras_unicas]
+    vetores_tfidf_docs = []
+    for doc in conj:
+        doc_vetor_tfidf = np.array([tf_idf(palav,doc,conj) for palav in palavras_unicas])
+        vetores_tfidf_docs.append(doc_vetor_tfidf)
+    return np.array(tfidf_vetor_query), np.array(vetores_tfidf_docs)
+
+#################################
