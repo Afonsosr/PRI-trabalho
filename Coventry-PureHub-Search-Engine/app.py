@@ -2,10 +2,12 @@ import streamlit as st
 from PIL import Image
 import ujson
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer, WordNetLemmatizer
+import numpy as np
+
 
 import nltk
 nltk.download('stopwords')
@@ -43,164 +45,266 @@ with open('pub_date.json', 'r') as f:
 with open('abstracts.json', 'r') as f:
     abstract = ujson.load(f)
 
+# Exercício 3 – Estratégias de Indexação: Lemas vs Stems
+
+def preprocess_query(token, indexing_strategy):
+    stem_temp = ""
+    lemmatize_temp = ""
+    stem_word_file = []
+    lemmatize_word_file = []
+    word_list = word_tokenize(token)
+
+    for x in word_list:
+        if x not in stop_words:
+            stem_temp += stemmer.stem(x) + " "
+            lemmatize_temp += lemmatizer.lemmatize(x) + " "
+
+    stem_word_file.append(stem_temp.strip())
+    lemmatize_word_file.append(lemmatize_temp.strip())
+
+    if indexing_strategy == "Lemming":
+        return lemmatize_word_file
+    else:
+        return stem_word_file
 
 
-def search_data(input_text, operator_val, search_type):
+# Exercício 4 – Operadores Lógicos AND, OR, NOT
+
+def search_data(input_text, operator_val, search_type, indexing_strategy, coseno_strategy):
     output_data = {}
-    if operator_val == 2:
-        input_text = input_text.lower().split()
+    input_text = input_text.lower().split()
+
+    if operator_val == 'OR':
         pointer = []
         for token in input_text:
             if len(input_text) < 2:
                 st.warning("Please enter at least 2 words to apply the operator.")
                 break
-            # if len(token) <= 3:
-            #     st.warning("Please enter more than 4 characters.")
-            #     break
-            stem_temp = ""
-            stem_word_file = []
+
+            final_word_file = preprocess_query(token, indexing_strategy)
             temp_file = []
-            word_list = word_tokenize(token)
 
-            for x in word_list:
-                if x not in stop_words:
-                    stem_temp += stemmer.stem(x) + " "
-            stem_word_file.append(stem_temp)
+            if search_type == "publication" and pub_index.get(final_word_file[0]):
+                pointer = pub_index.get(final_word_file[0])
+            elif search_type == "author" and author_index.get(final_word_file[0]):
+                pointer = author_index.get(final_word_file[0])
 
-            if search_type == "publication" and pub_index.get(stem_word_file[0].strip()):
-                pointer = pub_index.get(stem_word_file[0].strip())
-            elif search_type == "author" and author_index.get(stem_word_file[0].strip()):
-                pointer = author_index.get(stem_word_file[0].strip())
-                print(pointer)
-            elif search_type == "abstract" and abs_index.get(stem_word_file[0].strip()):
-                pointer = abs_index.get(stem_word_file[0].strip())
-
-            if len(pointer) == 0:
+            if not pointer:
                 output_data = {}
             else:
                 for j in pointer:
-                    if search_type == "publication":
-                        temp_file.append(pub_list_first_stem[j])
-                    elif search_type == "author":
-                        temp_file.append(author_list_first_stem[j])
+                    temp_file.append(pub_list_first_stem[j] if search_type == "publication" else author_list_first_stem[j])
 
-                temp_file = tfidf.fit_transform(temp_file)
-                cosine_output = cosine_similarity(temp_file, tfidf.transform(stem_word_file))
+                if coseno_strategy == 'SKLearn':
+                    temp_file = tfidf.fit_transform(temp_file)
+                    cosine_output = sklearn_cosine_similarity(temp_file, tfidf.transform(final_word_file)).flatten()
+                else:
+                    query_tfidf_vector, document_tfidf_vectors = vetor_tfidf(final_word_file[0], temp_file)
+                    cosine_output = [similaridade_cosseno(query_tfidf_vector, doc_vector) for doc_vector in document_tfidf_vectors]
 
                 for j in pointer:
                     output_data[j] = cosine_output[pointer.index(j)]
 
-    else:  # Relevant operator (OR)
-        input_text = input_text.lower().split()
+    elif operator_val == 'AND':
         pointer = []
         match_word = []
+        set2 = set()
+
         for token in input_text:
             if len(input_text) < 2:
                 st.warning("Please enter at least 2 words to apply the operator.")
                 break
-            # if len(token) <= 3:
-            #     st.warning("Please enter more than 4 characters.")
-            #     break
+
+            final_word_file = preprocess_query(token, indexing_strategy)
             temp_file = []
-            set2 = set()
-            stem_word_file = []
-            word_list = word_tokenize(token)
-            stem_temp = ""
-            for x in word_list:
-                if x not in stop_words:
-                    stem_temp += stemmer.stem(x) + " "
-            stem_word_file.append(stem_temp)
 
-            if search_type == "publication" and pub_index.get(stem_word_file[0].strip()):
-                set1 = set(pub_index.get(stem_word_file[0].strip()))
-                pointer.extend(list(set1))
-            elif search_type == "author" and author_index.get(stem_word_file[0].strip()):
-                set1 = set(author_index.get(stem_word_file[0].strip()))
-                pointer.extend(list(set1))
-            elif search_type == "abstract" and abs_index.get(stem_word_file[0].strip()):
-                set1 = set(abs_index.get(stem_word_file[0].strip()))
-                pointer.extend(list(set1))
-
-            if match_word == []:
-                match_word = list({z for z in pointer if z in set2 or (set2.add(z) or False)})
+            if search_type == "publication" and pub_index.get(final_word_file[0]):
+                set1 = set(pub_index.get(final_word_file[0]))
+            elif search_type == "author" and author_index.get(final_word_file[0]):
+                set1 = set(author_index.get(final_word_file[0]))
             else:
-                match_word.extend(list(set1))
-                match_word = list({z for z in match_word if z in set2 or (set2.add(z) or False)})
+                set1 = set()
+
+            pointer.extend(list(set1))
+
+            if not match_word:
+                match_word = list(set1)
+            else:
+                match_word = list(set(match_word) & set1)
 
         if len(input_text) > 1:
-            match_word = {z for z in match_word if z in set2 or (set2.add(z) or False)}
-
-            if len(match_word) == 0:
+            if not match_word:
                 output_data = {}
             else:
-                for j in list(match_word):
-                    if search_type == "publication":
-                        temp_file.append(pub_list_first_stem[j])
-                    elif search_type == "author":
-                        temp_file.append(author_list_first_stem[j])
+                for j in match_word:
+                    temp_file.append(pub_list_first_stem[j] if search_type == "publication" else author_list_first_stem[j])
 
+                if coseno_strategy == 'Sklearn':
+                    temp_file = tfidf.fit_transform(temp_file)
+                    cosine_output = sklearn_cosine_similarity(temp_file, tfidf.transform([final_word_file[0]])).flatten()
+                else:
+                    query_tfidf_vector, document_tfidf_vectors = vetor_tfidf(final_word_file[0], temp_file)
+                    cosine_output = [similaridade_cosseno(query_tfidf_vector, doc_vector) for doc_vector in document_tfidf_vectors]
+
+                for j in match_word:
+                    output_data[j] = cosine_output[match_word.index(j)]
+
+    elif operator_val == 'NOT':
+        pointer = []
+        for token in input_text:
+            if len(input_text) < 2:
+                st.warning("Please enter at least 2 words to apply the operator.")
+                break
+
+            final_word_file = preprocess_query(token, indexing_strategy)
+
+            if search_type == "publication" and pub_index.get(final_word_file[0]):
+                pointer.extend(pub_index.get(final_word_file[0]))
+            elif search_type == "author" and author_index.get(final_word_file[0]):
+                pointer.extend(author_index.get(final_word_file[0]))
+
+        not_pointer = []
+        full_range = range(len(pub_list_first_stem) if search_type == "publication" else len(author_list_first_stem))
+        not_pointer = [i for i in full_range if i not in pointer]
+
+        temp_file = []
+        if not_pointer:
+            for j in not_pointer:
+                temp_file.append(pub_list_first_stem[j] if search_type == "publication" else author_list_first_stem[j])
+
+            if coseno_strategy == 'Sklearn':
                 temp_file = tfidf.fit_transform(temp_file)
-                cosine_output = cosine_similarity(temp_file, tfidf.transform(stem_word_file))
-
-                for j in list(match_word):
-                    output_data[j] = cosine_output[list(match_word).index(j)]
-        else:
-            if len(pointer) == 0:
-                output_data = {}
+                cosine_output = sklearn_cosine_similarity(temp_file, tfidf.transform([final_word_file[0]])).flatten()
             else:
-                for j in pointer:
-                    if search_type == "publication":
-                        temp_file.append(pub_list_first_stem[j])
-                    elif search_type == "author":
-                        temp_file.append(author_list_first_stem[j])
+                query_tfidf_vector, document_tfidf_vectors = vetor_tfidf(final_word_file[0], temp_file)
+                cosine_output = [similaridade_cosseno(query_tfidf_vector, doc_vector) for doc_vector in document_tfidf_vectors]
 
-                temp_file = tfidf.fit_transform(temp_file)
-                cosine_output = cosine_similarity(temp_file, tfidf.transform(stem_word_file))
+            for j in not_pointer:
+                output_data[j] = cosine_output[not_pointer.index(j)]
 
-                for j in pointer:
-                    output_data[j] = cosine_output[pointer.index(j)]
+    else:
+        st.warning("Invalid operator value.")
+        output_data = {}
 
     return output_data
 
+# Exercicio 5
+
+def tf(termo,documento):
+    c = 0
+    for elem in documento:
+        if termo == elem:
+            c += 1 
+    return c
+
+def idf(palavra,conj):
+    num_docs = len(conj) + 1
+    
+    num_docs_c_palavra = 1 # em vez de, no fim, se somar 1, começa-se logo a contagem com 1
+    for d in conj:
+        if palavra in d:
+            num_docs_c_palavra += 1
+    
+    idf = np.log10(num_docs/num_docs_c_palavra) + 1
+    return idf
+
+def tf_idf(termo,documento,conj):
+    resultado = tf(termo,documento) * idf(termo,conj)
+    return resultado
+
+
+def similaridade_cosseno(query,doc):
+    #print("query_tfidf shape:", query.shape)
+    #print("document_tfidf shape:", document_tfidf.shape)
+    produto_escalar = np.dot(query, doc) 
+    norma_query = np.linalg.norm(query)
+    norma_doc = np.linalg.norm(doc)
+    res = produto_escalar / (norma_query * norma_doc)
+    return res
+
+def vetor_tfidf(query,docs):
+    conj = []
+    for doc in docs:
+        doc = doc.split()
+        conj.append(doc)
+    palavras_unicas = list(set(query.split() + [p for doc in conj for p in doc]))
+    tfidf_vetor_query = [tf_idf(pal,query.split(),conj) for pal in palavras_unicas]
+    vetores_tfidf_docs = []
+    for doc in conj:
+        doc_vetor_tfidf = np.array([tf_idf(palav,doc,conj) for palav in palavras_unicas])
+        vetores_tfidf_docs.append(doc_vetor_tfidf)
+    return np.array(tfidf_vetor_query), np.array(vetores_tfidf_docs)
 
 def app():
 
-        # Load the image and display it
     image = Image.open('cire.png')
     st.image(image)
 
     # Add a text description
     st.markdown("<p style='text-align: center;'> Uncover the brilliance: Explore profiles, groundbreaking work, and cutting-edge research by the exceptional minds of Coventry University.</p>", unsafe_allow_html=True)
 
-
     input_text = st.text_input("Search research:", key="query_input")
     operator_val = st.radio(
         "Search Filters",
-        ['Exact', 'Relevant'],
+        ['AND', 'OR', 'NOT'],
         index=1,
         key="operator_input",
         horizontal=True,
     )
+
     search_type = st.radio(
         "Search in:",
-        ['Publications', 'Authors', 'Abstracts'],
+        ['Publications', 'Authors'],
         index=0,
         key="search_type_input",
         horizontal=True,
     )
 
-    if st.button("SEARCH"):
-        if search_type == "Publications":
-            output_data = search_data(input_text, 1 if operator_val == 'Exact' else 2, "publication")
-        elif search_type == "Authors":
-            output_data = search_data(input_text, 1 if operator_val == 'Exact' else 2, "author")
-        elif search_type == "Abstracts":
-            output_data = search_data(input_text, 1 if operator_val == 'Exact' else 2, "abstract")
-        else:
-            output_data = {}
+    indexing_strategy = st.radio(
+        "Indexing Strategies:",
+        ['Lemming', 'Stemming'],
+        index=0,
+        key="indexing_strategies_input",
+        horizontal=True,
+    )
 
-        # Display the search results
-        show_results(output_data, search_type)
+    coseno_strategy = st.radio(
+        "Weighting Factor:",
+        ['Sklearn', 'Manual'],
+        index=0,
+        key="cos_strategies",
+        horizontal=True,
+    )
+
+    if st.button("SEARCH"):
+        print("Indexing strategy:", indexing_strategy)
+        if search_type == "Publications":
+            if operator_val == 'AND':
+                output_data = search_data(input_text, 'AND', "publication", indexing_strategy, coseno_strategy)
+            elif operator_val == 'OR':
+                output_data = search_data(input_text, 'OR', "publication", indexing_strategy, coseno_strategy)
+            elif operator_val == 'NOT':
+                output_data = search_data(input_text, 'NOT', "publication", indexing_strategy, coseno_strategy)
+            else:
+                st.warning("Invalid operator value.")
+                output_data = {}
+        elif search_type == "Authors":
+            if operator_val == 'AND':
+                output_data = search_data(input_text, 'AND', "author", indexing_strategy, coseno_strategy)
+            elif operator_val == 'OR':
+                output_data = search_data(input_text, 'OR', "author", indexing_strategy, coseno_strategy)
+            elif operator_val == 'NOT':
+                output_data = search_data(input_text, 'NOT', "author", indexing_strategy, coseno_strategy)
+            else:
+                st.warning("Invalid operator value.")
+                output_data = {}
+    else:
+        output_data = {}
+
+    # Display the search results
+    show_results(output_data, search_type)
+
+
 
     st.markdown("<p style='text-align: center;'> Brought to you with ❤ by <a href='https://github.com/maladeep'>Mala Deep</a> | Data © Coventry University </p>", unsafe_allow_html=True)
 
@@ -222,31 +326,36 @@ def show_results(output_data, search_type):
         # Draw the card
         with cols[n_row % N_cards_per_row]:
             if search_type == "Publications":
+                url = pub_url[id_val]
+                abstract_text = findAbstractByUrl(url, abstract)
+                abstract_text = abstract_text[:200] + '...' if len(abstract_text) > 200 else abstract_text #Mostra apenas um excerto de 200 palavras
                 st.caption(f"{pub_date[id_val].strip()}")
                 st.markdown(f"**{pub_cu_author[id_val].strip()}**")
                 st.markdown(f"*{pub_name[id_val].strip()}*")
+                st.markdown(f"**Abstract:** {abstract_text}")
                 st.markdown(f"**{pub_url[id_val]}**")
+                st.markdown(f"Ranking: {ranking:.2f}")
+         
+
             elif search_type == "Authors":
                 st.caption(f"{pub_date[id_val].strip()}")
                 st.markdown(f"**{author_name[id_val].strip()}**")
                 st.markdown(f"*{pub_name[id_val].strip()}*")
                 st.markdown(f"**{pub_url[id_val]}**")
-                st.markdown(f"Ranking: {ranking[0]:.2f}")
-            elif search_type == "Abstracts":
-                st.caption(f"{pub_date[id_val].strip()}")
-                st.markdown(f"**{author_name[id_val].strip()}**")
-                st.markdown(f"*{pub_name[id_val].strip()}*")
-                st.markdown(f"**{pub_url[id_val]}**")
-                st.markdown(f"Ranking: {ranking[0]:.2f}")
-
+                st.markdown(f"Ranking: {ranking:.2f}")
+                
         aa += 1
 
     if aa == 0:
         st.info("No results found. Please try again.")
     else:
         st.info(f"Results shown for: {aa}")
-
+            
+def findAbstractByUrl(url, abstracts):
+    for entry in abstracts:
+        if entry["link"] == url:
+            return entry["abstract"]
+    return "Abstract not found"
 
 if __name__ == '__main__':
     app()
-
