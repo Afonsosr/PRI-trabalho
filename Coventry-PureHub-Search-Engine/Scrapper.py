@@ -9,7 +9,8 @@ from bs4 import BeautifulSoup  # Library for parsing HTML data
 from selenium import webdriver  # Library for browser automation
 from selenium.common.exceptions import NoSuchElementException  # Exception for missing elements
 from webdriver_manager.chrome import ChromeDriverManager  # Driver manager for Chrome (We are using Chromium based )
-
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
 
 
 # Delete files if present
@@ -33,13 +34,16 @@ def initCrawlerScraper(seed,max_profiles=500):
     webOpt.add_argument('--ignore-certificate-errors')
     webOpt.add_argument('--incognito')
     webOpt.headless = True
-    driver = webdriver.Chrome(service=ChromeDriverManager().install(), options=webOpt)
+
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=webOpt)
+
     driver.get(seed)  # Start with the original link
 
     Links = []  # Array with pureportal profiles URL
     pub_data = []  # To store publication information for each pureportal profile
 
-    nextLink = driver.find_element_by_css_selector(".nextLink").is_enabled()  # Check if the next page link is enabled
+    nextLink = driver.find_element(By.CSS_SELECTOR, ".nextLink").is_enabled()
+  # Check if the next page link is enabled
     print("Crawler has begun...")
     while (nextLink):
         page = driver.page_source
@@ -53,8 +57,8 @@ def initCrawlerScraper(seed,max_profiles=500):
             
         # Click on Next button to visit next page
         try:
-            if driver.find_element_by_css_selector(".nextLink"):
-                element = driver.find_element_by_css_selector(".nextLink")
+            if driver.find_element(By.CSS_SELECTOR, ".nextLink"):
+                element = driver.find_element(By.CSS_SELECTOR, ".nextLink")
                 driver.execute_script("arguments[0].click();", element)
             else:
                 nextLink = False
