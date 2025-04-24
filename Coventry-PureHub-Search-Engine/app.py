@@ -5,22 +5,26 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
+from nltk.stem import PorterStemmer, WordNetLemmatizer
 
 import nltk
-# nltk.download('stopwords')
-# nltk.download('punkt')
-
+nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('wordnet')
+nltk.download('omw-1.4')
 
 # Set up the NLTK components
 stemmer = PorterStemmer()
+lemmatizer = WordNetLemmatizer()
 stop_words = stopwords.words('english')
 tfidf = TfidfVectorizer()
 
 # Load the data
-with open('publication_list_stemmed.json', 'r') as f:
+f1 = 'publication_list_stemmed.json'
+with open(f1, 'r') as f:
     pub_list_first_stem = ujson.load(f)
-with open('publication_indexed_dictionary.json', 'r') as f:
+file_path = "publication_indexed_dictionary.json"
+with open(file_path, 'r') as f:
     pub_index = ujson.load(f)
 with open('author_list_stemmed.json', 'r') as f:
     author_list_first_stem = ujson.load(f)
@@ -36,8 +40,8 @@ with open('pub_cu_author.json', 'r') as f:
     pub_cu_author = ujson.load(f)
 with open('pub_date.json', 'r') as f:
     pub_date = ujson.load(f)
-with open('author_indexed_dictionary.json', 'r') as f:
-    abs_index = ujson.load(f)
+with open('abstracts.json', 'r') as f:
+    abstract = ujson.load(f)
 
 
 
