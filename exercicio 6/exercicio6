@@ -68,7 +68,7 @@ else:
 <!-- O bloco de código fica assim: -->
 
 if st.button("SEARCH"):
-    print("Indexing strategy:", indexing_strategy)
+    print("Indexing strategy:", XXXXXX)
     if search_type == "Publications":
         if operator_val == 'AND':
             output_data = search_data(input_text, 'AND', "publication", XXXXXX, rank_escolha_botao)
