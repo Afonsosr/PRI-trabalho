@@ -40,8 +40,8 @@ if rank_escolha_botao == 'SKLearn':
       temp_file = tfidf.fit_transform(temp_file)
       cosine_output = sklearn_cosine_similarity(temp_file, tfidf.transform(final_word_file)).flatten()
 else:  # Manual cosine similarity
-      query_tfidf_vector, document_tfidf_vectors = calculate_tfidf_vector(final_word_file[0], temp_file)
-      cosine_output = [manual_cosine_similarity(query_tfidf_vector, doc_vector) for doc_vector in document_tfidf_vectors]
+      query_tfidf_vector, document_tfidf_vectors = tfidf_vetor(final_word_file[0], temp_file)
+      cosine_output = [similaridade_cosseno(query_tfidf_vector, doc_vector) for doc_vector in document_tfidf_vectors]
 
 <!-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ -->
 
