@@ -1,0 +1,100 @@
+<!-- adicionar isto: -->
+
+rank_escolha_botao = st.radio(
+    "Function used:",
+    ['SKLearn', 'Manual method'],
+    index=0,
+    key="rank_escolha_botao",
+    horizontal=True,
+    )
+
+<!-- a seguir a isto: -->
+
+search_type = st.radio(
+    "Search in:",
+    ['Publications', 'Authors'],
+    index=0,
+    key="search_type_input",
+    horizontal=True,
+    )
+
+indexing_strategy = st.radio(
+    "Indexing Strategies:",
+    ['Lemming', 'Stemming'],
+    index=0,
+    key="indexing_strategies_input",
+    horizontal=True,
+    )
+
+<!-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ -->
+
+<!-- trocar as ocorrências disto: -->
+
+temp_file = tfidf.fit_transform(temp_file)
+      cosine_output = cosine_similarity(temp_file, tfidf.transform(stem_word_file))
+
+<!-- por isto: -->
+
+por isto:
+if rank_escolha_botao == 'SKLearn':
+      temp_file = tfidf.fit_transform(temp_file)
+      cosine_output = sklearn_cosine_similarity(temp_file, tfidf.transform(final_word_file)).flatten()
+else:  # Manual cosine similarity
+      query_tfidf_vector, document_tfidf_vectors = vetor_tfidf(final_word_file[0], temp_file)
+      cosine_output = [similaridade_cosseno(query_tfidf_vector, doc_vector) for doc_vector in document_tfidf_vectors]
+
+<!-- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ -->
+
+if st.button("SEARCH"):
+    if search_type == "Publications":
+        output_data = search_data(input_text, 1 if operator_val == 'Exact' else 2, "publication")
+    elif search_type == "Authors":
+        output_data = search_data(input_text, 1 if operator_val == 'Exact' else 2, "author")
+    else:
+        output_data = {}
+
+<!-- dentro do "Publications" e do "Authors" por isto lá dentro: -->
+
+if operator_val == 'AND':
+    output_data = search_data(input_text, 'AND', "publication", XXXXXX, rank_escolha_botao)
+elif operator_val == 'OR':
+    output_data = search_data(input_text, 'OR', "publication", XXXXXX, rank_escolha_botao)
+elif operator_val == 'NOT':
+    output_data = search_data(input_text, 'NOT', "publication", XXXXXX, rank_escolha_botao)
+else:
+    st.warning("Invalid operator value.")
+    output_data = {}
+
+<!-- O bloco de código fica assim: -->
+
+if st.button("SEARCH"):
+    print("Indexing strategy:", XXXXXX)
+    if search_type == "Publications":
+        if operator_val == 'AND':
+            output_data = search_data(input_text, 'AND', "publication", XXXXXX, rank_escolha_botao)
+        elif operator_val == 'OR':
+            output_data = search_data(input_text, 'OR', "publication", XXXXXX, rank_escolha_botao)
+        elif operator_val == 'NOT':
+            output_data = search_data(input_text, 'NOT', "publication", XXXXXX, rank_escolha_botao)
+        else:
+            st.warning("Invalid operator value.")
+            output_data = {}
+    elif search_type == "Authors":
+        if operator_val == 'AND':
+            output_data = search_data(input_text, 'AND', "author", XXXXXX, rank_escolha_botao)
+        elif operator_val == 'OR':
+            output_data = search_data(input_text, 'OR', "author", XXXXXX, rank_escolha_botao)
+        elif operator_val == 'NOT':
+            output_data = search_data(input_text, 'NOT', "author", XXXXXX, rank_escolha_botao)
+        else:
+            st.warning("Invalid operator value.")
+            output_data = {}
+else:
+    output_data = {}
+
+
+
+<!--\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\-->
+<!-- Nota: os XXXXXX acima são pra por o nome do botão pra escolher entre Lemming e Stemming \\\\\\\\\-->
+<!--\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\-->
+

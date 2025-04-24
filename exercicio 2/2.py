@@ -17,7 +17,7 @@ stop_words = set(stopwords.words('english'))
 f = open('saudeTitulos.json', 'r', encoding = "utf-8")
 titulos = ujson.load(f)
 titulo_limpo = ""
-caracteres_especiais = '''!()-—[]{};:'"\,<>./?@#$%^&*_~0123456789+=’‘'''
+caracteres_especiais = '''!()-—[]{};:0123456789'"\,#$%^&<>./?@*_~+=’‘'''
 
 for titulo in titulos:
     titulo_limpo = ''
