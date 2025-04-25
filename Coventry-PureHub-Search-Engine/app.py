@@ -10,7 +10,7 @@ import numpy as np
 
 
 import nltk
-nltk.download('stopwords')
+nltk.download('stopwords') #palavras que comuns que não têm grande significado por isso não passam pela indexação
 nltk.download('punkt')
 nltk.download('wordnet')
 nltk.download('omw-1.4')
@@ -47,18 +47,22 @@ with open('abstracts.json', 'r') as f:
 
 # Exercício 3 – Estratégias de Indexação: Lemas vs Stems
 
-def preprocess_query(token, indexing_strategy):
+
+def indexação(token, indexing_strategy):
+    #Inicializa variáveis para guardar os resultados
     stem_temp = ""
     lemmatize_temp = ""
     stem_word_file = []
     lemmatize_word_file = []
-    word_list = word_tokenize(token)
+    word_list = word_tokenize(token) #divide a frase em palavras individuais
 
+    #aplicar o stemmer e o lemmatizer
     for x in word_list:
         if x not in stop_words:
             stem_temp += stemmer.stem(x) + " "
             lemmatize_temp += lemmatizer.lemmatize(x) + " "
 
+    # Remove espaços extra e guarda o resultado final nas listas criadas
     stem_word_file.append(stem_temp.strip())
     lemmatize_word_file.append(lemmatize_temp.strip())
 
@@ -70,41 +74,42 @@ def preprocess_query(token, indexing_strategy):
 
 # Exercício 4 – Operadores Lógicos AND, OR, NOT
 
-def search_data(input_text, operator_val, search_type, indexing_strategy, coseno_strategy):
+def search_data(input_text, operator_val, search_type, indexing_strategy, rank_escolha_botao):
     output_data = {}
     input_text = input_text.lower().split()
 
+    # ---------------------- OPERADOR OR ----------------------
     if operator_val == 'OR':
-        pointer = []
+        pointer = set()
         for token in input_text:
             if len(input_text) < 2:
                 st.warning("Please enter at least 2 words to apply the operator.")
                 break
 
-            final_word_file = preprocess_query(token, indexing_strategy)
-            temp_file = []
+            final_word_file = indexação(token, indexing_strategy)
 
             if search_type == "publication" and pub_index.get(final_word_file[0]):
-                pointer = pub_index.get(final_word_file[0])
+                pointer.update(pub_index.get(final_word_file[0]))
             elif search_type == "author" and author_index.get(final_word_file[0]):
-                pointer = author_index.get(final_word_file[0])
+                pointer.update(author_index.get(final_word_file[0]))
 
-            if not pointer:
-                output_data = {}
+        if not pointer:
+            output_data = {}
+        else:
+            temp_file = [pub_list_first_stem[j] if search_type == "publication" else author_list_first_stem[j] for j in pointer]
+
+            query = " ".join(input_text)
+            if rank_escolha_botao.lower() == 'sklearn':
+                temp_file = tfidf.fit_transform(temp_file)
+                cosine_output = sklearn_cosine_similarity(temp_file, tfidf.transform([query])).flatten()
             else:
-                for j in pointer:
-                    temp_file.append(pub_list_first_stem[j] if search_type == "publication" else author_list_first_stem[j])
+                query_tfidf_vector, document_tfidf_vectors = vetor_tfidf(query, temp_file)
+                cosine_output = [similaridade_cosseno(query_tfidf_vector, doc_vector) for doc_vector in document_tfidf_vectors]
 
-                if coseno_strategy == 'SKLearn':
-                    temp_file = tfidf.fit_transform(temp_file)
-                    cosine_output = sklearn_cosine_similarity(temp_file, tfidf.transform(final_word_file)).flatten()
-                else:
-                    query_tfidf_vector, document_tfidf_vectors = vetor_tfidf(final_word_file[0], temp_file)
-                    cosine_output = [similaridade_cosseno(query_tfidf_vector, doc_vector) for doc_vector in document_tfidf_vectors]
+            for i, j in enumerate(pointer):
+                output_data[j] = cosine_output[i]
 
-                for j in pointer:
-                    output_data[j] = cosine_output[pointer.index(j)]
-
+    # ---------------------- OPERADOR AND ----------------------
     elif operator_val == 'AND':
         pointer = []
         match_word = []
@@ -115,8 +120,7 @@ def search_data(input_text, operator_val, search_type, indexing_strategy, coseno
                 st.warning("Please enter at least 2 words to apply the operator.")
                 break
 
-            final_word_file = preprocess_query(token, indexing_strategy)
-            temp_file = []
+            final_word_file = indexação(token, indexing_strategy)
 
             if search_type == "publication" and pub_index.get(final_word_file[0]):
                 set1 = set(pub_index.get(final_word_file[0]))
@@ -136,19 +140,20 @@ def search_data(input_text, operator_val, search_type, indexing_strategy, coseno
             if not match_word:
                 output_data = {}
             else:
-                for j in match_word:
-                    temp_file.append(pub_list_first_stem[j] if search_type == "publication" else author_list_first_stem[j])
+                temp_file = [pub_list_first_stem[j] if search_type == "publication" else author_list_first_stem[j] for j in match_word]
 
-                if coseno_strategy == 'Sklearn':
+                query = " ".join(input_text)
+                if rank_escolha_botao.lower() == 'sklearn':
                     temp_file = tfidf.fit_transform(temp_file)
-                    cosine_output = sklearn_cosine_similarity(temp_file, tfidf.transform([final_word_file[0]])).flatten()
+                    cosine_output = sklearn_cosine_similarity(temp_file, tfidf.transform([query])).flatten()
                 else:
-                    query_tfidf_vector, document_tfidf_vectors = vetor_tfidf(final_word_file[0], temp_file)
+                    query_tfidf_vector, document_tfidf_vectors = vetor_tfidf(query, temp_file)
                     cosine_output = [similaridade_cosseno(query_tfidf_vector, doc_vector) for doc_vector in document_tfidf_vectors]
 
-                for j in match_word:
-                    output_data[j] = cosine_output[match_word.index(j)]
+                for i, j in enumerate(match_word):
+                    output_data[j] = cosine_output[i]
 
+    # ---------------------- OPERADOR NOT ----------------------
     elif operator_val == 'NOT':
         pointer = []
         for token in input_text:
@@ -156,37 +161,37 @@ def search_data(input_text, operator_val, search_type, indexing_strategy, coseno
                 st.warning("Please enter at least 2 words to apply the operator.")
                 break
 
-            final_word_file = preprocess_query(token, indexing_strategy)
+            final_word_file = indexação(token, indexing_strategy)
 
             if search_type == "publication" and pub_index.get(final_word_file[0]):
                 pointer.extend(pub_index.get(final_word_file[0]))
             elif search_type == "author" and author_index.get(final_word_file[0]):
                 pointer.extend(author_index.get(final_word_file[0]))
 
-        not_pointer = []
         full_range = range(len(pub_list_first_stem) if search_type == "publication" else len(author_list_first_stem))
         not_pointer = [i for i in full_range if i not in pointer]
 
-        temp_file = []
         if not_pointer:
-            for j in not_pointer:
-                temp_file.append(pub_list_first_stem[j] if search_type == "publication" else author_list_first_stem[j])
+            temp_file = [pub_list_first_stem[j] if search_type == "publication" else author_list_first_stem[j] for j in not_pointer]
 
-            if coseno_strategy == 'Sklearn':
+            query = " ".join(input_text)
+            if rank_escolha_botao.lower() == 'sklearn':
                 temp_file = tfidf.fit_transform(temp_file)
-                cosine_output = sklearn_cosine_similarity(temp_file, tfidf.transform([final_word_file[0]])).flatten()
+                cosine_output = sklearn_cosine_similarity(temp_file, tfidf.transform([query])).flatten()
             else:
-                query_tfidf_vector, document_tfidf_vectors = vetor_tfidf(final_word_file[0], temp_file)
+                query_tfidf_vector, document_tfidf_vectors = vetor_tfidf(query, temp_file)
                 cosine_output = [similaridade_cosseno(query_tfidf_vector, doc_vector) for doc_vector in document_tfidf_vectors]
 
-            for j in not_pointer:
-                output_data[j] = cosine_output[not_pointer.index(j)]
+            for i, j in enumerate(not_pointer):
+                output_data[j] = cosine_output[i]
 
+    # ---------------------- OPERADOR INVÁLIDO ----------------------
     else:
         st.warning("Invalid operator value.")
         output_data = {}
 
     return output_data
+
 
 # Exercicio 5
 
@@ -268,11 +273,11 @@ def app():
         horizontal=True,
     )
 
-    coseno_strategy = st.radio(
+    rank_escolha_botao = st.radio(
         "Weighting Factor:",
         ['Sklearn', 'Manual'],
         index=0,
-        key="cos_strategies",
+        key="rank_escolha_botao",
         horizontal=True,
     )
 
@@ -280,21 +285,21 @@ def app():
         print("Indexing strategy:", indexing_strategy)
         if search_type == "Publications":
             if operator_val == 'AND':
-                output_data = search_data(input_text, 'AND', "publication", indexing_strategy, coseno_strategy)
+                output_data = search_data(input_text, 'AND', "publication", indexing_strategy, rank_escolha_botao)
             elif operator_val == 'OR':
-                output_data = search_data(input_text, 'OR', "publication", indexing_strategy, coseno_strategy)
+                output_data = search_data(input_text, 'OR', "publication", indexing_strategy, rank_escolha_botao)
             elif operator_val == 'NOT':
-                output_data = search_data(input_text, 'NOT', "publication", indexing_strategy, coseno_strategy)
+                output_data = search_data(input_text, 'NOT', "publication", indexing_strategy, rank_escolha_botao)
             else:
                 st.warning("Invalid operator value.")
                 output_data = {}
         elif search_type == "Authors":
             if operator_val == 'AND':
-                output_data = search_data(input_text, 'AND', "author", indexing_strategy, coseno_strategy)
+                output_data = search_data(input_text, 'AND', "author", indexing_strategy, rank_escolha_botao)
             elif operator_val == 'OR':
-                output_data = search_data(input_text, 'OR', "author", indexing_strategy, coseno_strategy)
+                output_data = search_data(input_text, 'OR', "author", indexing_strategy, rank_escolha_botao)
             elif operator_val == 'NOT':
-                output_data = search_data(input_text, 'NOT', "author", indexing_strategy, coseno_strategy)
+                output_data = search_data(input_text, 'NOT', "author", indexing_strategy, rank_escolha_botao)
             else:
                 st.warning("Invalid operator value.")
                 output_data = {}
