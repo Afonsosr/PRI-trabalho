@@ -13,12 +13,19 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 
 
-# Delete files if present
-# try:
-#     os.remove('Authors_URL.txt')
-#     os.remove('scraper_results.json')
-# except OSError:
-#     pass
+def extract_abstract(pub_soup):
+    try:
+        sections = pub_soup.find_all('section', class_='page-section')
+        for section in sections:
+            subheader = section.find('h2', class_='subheader')
+            if subheader and 'Abstract' in subheader.text:
+                textblock = section.find('div', class_='textblock')
+                if textblock:
+                    return textblock.get_text(strip=True)
+        return "No abstract available"
+    except Exception as e:
+        print(f"Error extracting abstract: {e}")
+        return "Error fetching abstract"
 
 def write_authors(list1, file_name):
      # Function to write authors' URLs to a file
@@ -27,7 +34,7 @@ def write_authors(list1, file_name):
             f.write(list1[i] + '\n')
 
 
-def initCrawlerScraper(seed,max_profiles=500):
+def initCrawlerScraper(seed, max_profiles=500):
     # Initialize driver for Chrome
     webOpt = webdriver.ChromeOptions()
     webOpt.add_experimental_option('excludeSwitches', ['enable-logging'])
@@ -36,115 +43,101 @@ def initCrawlerScraper(seed,max_profiles=500):
     webOpt.headless = True
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=webOpt)
-
     driver.get(seed)  # Start with the original link
 
     Links = []  # Array with pureportal profiles URL
     pub_data = []  # To store publication information for each pureportal profile
 
-    nextLink = driver.find_element(By.CSS_SELECTOR, ".nextLink").is_enabled()
-  # Check if the next page link is enabled
     print("Crawler has begun...")
-    while (nextLink):
+    while True:
         page = driver.page_source
-        # XML parser to parse each URL
-        bs = BeautifulSoup(page, "lxml")  # Parse the page source using BeautifulSoup
+        bs = BeautifulSoup(page, "lxml")  # Parse the page source
 
-        # Extracting exact URL by spliting string into list
+        # Extracting authors' profile URLs
         for link in bs.findAll('a', class_='link person'):
-            url = str(link)[str(link).find('https://pureportal.coventry.ac.uk/en/persons/'):].split('"')
-            Links.append(url[0])
-            
+            url = str(link)[str(link).find('https://pureportal.coventry.ac.uk/en/persons/'):].split('"')[0]
+            Links.append(url)
+
         # Click on Next button to visit next page
         try:
-            if driver.find_element(By.CSS_SELECTOR, ".nextLink"):
-                element = driver.find_element(By.CSS_SELECTOR, ".nextLink")
-                driver.execute_script("arguments[0].click();", element)
+            next_button = driver.find_element(By.CSS_SELECTOR, ".nextLink")
+            if next_button.is_enabled():
+                driver.execute_script("arguments[0].click();", next_button)
             else:
-                nextLink = False
+                break
         except NoSuchElementException:
             break
-            
-        # Check if the maximum number of profiles is reached
+
         if len(Links) >= max_profiles:
             break
-            
-    print("Crawler has found ", len(Links), " pureportal profiles")
-    write_authors(Links, 'Authors_URL.txt') # Write the authors' URLs to a file
 
-    print("Scraping publication data for ", len(Links), " pureportal profiles...")
-    count = 0
+    print(f"Crawler has found {len(Links)} pureportal profiles")
+    write_authors(Links, 'Authors_URL.txt')  # Write the authors' URLs to a file
+
+    print(f"Scraping publication data for {len(Links)} pureportal profiles...")
     for link in Links:
-        # Visit each link to get data
-        time.sleep(1)  # Delay of 1 second to hit next data
+        time.sleep(1)  # Small delay between requests
         driver.get(link)
+
         try:
-            if driver.find_elements_by_css_selector(".portal_link.btn-primary.btn-large"):
-                element = driver.find_elements_by_css_selector(".portal_link.btn-primary.btn-large")
-                for a in element:
-                    if "research output".lower() in a.text.lower():
-                        driver.execute_script("arguments[0].click();", a)
-                        driver.get(driver.current_url)
-                        # Get name of Author
-                        name = driver.find_element_by_css_selector("div[class='header person-details']>h1")
-                        r = requests.get(driver.current_url)
-                        # Parse all the data via BeautifulSoup
-                        soup = BeautifulSoup(r.content, 'lxml')
+            # Check if the profile has a 'Research Output' button
+            research_outputs = driver.find_elements(By.CSS_SELECTOR, ".portal_link.btn-primary.btn-large")
+            clicked = False
+            for button in research_outputs:
+                if "research output" in button.text.lower():
+                    driver.execute_script("arguments[0].click();", button)
+                    driver.get(driver.current_url)
+                    clicked = True
+                    break
 
-                        # Extracting publication name, publication url, date and CU Authors
-                        table = soup.find('ul', attrs={'class': 'list-results'})
-                        if table != None:
-                            for row in table.findAll('div', attrs={'class': 'result-container'}):
-                                data = {}
-                                data['name'] = row.h3.a.text
-                                data['pub_url'] = row.h3.a['href']
-                                date = row.find("span", class_="date")
+            # Get author's name
+            name_element = driver.find_element(By.CSS_SELECTOR, "div.header.person-details > h1")
+            author_name = name_element.text
 
-                                rowitem = row.find_all(['div'])
-                                span = row.find_all(['span'])
-                                data['cu_author'] = name.text
-                                data['date'] = date.text
-                                print("Publication Name :", row.h3.a.text)
-                                print("Publication URL :", row.h3.a['href'])
-                                print("CU Author :", name.text)
-                                print("Date :", date.text)
-                                print("\n")
-                                pub_data.append(data)
-            else:
-                # Get name of Author
-                name = driver.find_element_by_css_selector("div[class='header person-details']>h1")
-                r = requests.get(link)
-                # Parse all the data via BeautifulSoup
-                soup = BeautifulSoup(r.content, 'lxml')
-                # Extracting publication name, publication url, date and CU Authors
-                table = soup.find('div', attrs={'class': 'relation-list relation-list-publications'})
-                if table != None:
-                    for row in table.findAll('div', attrs={'class': 'result-container'}):
-                        data = {}
-                        data["name"] = row.h3.a.text
-                        data['pub_url'] = row.h3.a['href']
-                        date = row.find("span", class_="date")
-                        rowitem = row.find_all(['div'])
-                        span = row.find_all(['span'])
-                        data['cu_author'] = name.text
-                        data['date'] = date.text
-                        print("Publication Name :", row.h3.a.text)
-                        print("Publication URL :", row.h3.a['href'])
-                        print("CU Author :", name.text)
-                        print("Date :", date.text)
-                        print("\n")
-                        pub_data.append(data)
-        except Exception:
+            # Request the current page for publications
+            page_source = driver.page_source
+            soup = BeautifulSoup(page_source, 'lxml')
+
+
+            # Locate the publication list
+            table = soup.find('ul', class_='list-results') if clicked else soup.find('div', class_='relation-list relation-list-publications')
+
+            if table:
+                for row in table.find_all('div', class_='result-container'):
+                    data = {}
+                    data['name'] = row.h3.a.text
+                    data['pub_url'] = row.h3.a['href']
+                    date_element = row.find("span", class_="date")
+                    data['date'] = date_element.text if date_element else "No date"
+                    data['cu_author'] = author_name
+
+                    # Fetch abstract from publication page
+                    try:
+                        driver.get(data['pub_url'])
+                        time.sleep(2)
+                        pub_page = driver.page_source
+                        pub_soup = BeautifulSoup(pub_page, 'lxml')
+                        data['abstract'] = extract_abstract(pub_soup)
+                    except Exception as e:
+                        data['abstract'] = "Error fetching abstract"
+
+
+                    pub_data.append(data)
+
+        except Exception as e:
+            print(f"Error processing profile {link}: {e}")
             continue
 
-    print("Crawler has scrapped data for ", len(pub_data), " pureportal publications")
+    print(f"Crawler has scraped data for {len(pub_data)} pureportal publications")
     driver.quit()
-    # Writing all the scraped results in a file with JSON format
-    with open('scraper_results.json', 'w') as f:
-        ujson.dump(pub_data, f)
+
+    # Writing all the scraped results to a file in JSON format
+    with open('scraper_results.json', 'w', encoding='utf-8') as f:
+        ujson.dump(pub_data, f,ensure_ascii=False, indent=4)
 
 
-initCrawlerScraper('https://pureportal.coventry.ac.uk/en/organisations/coventry-university/persons/', max_profiles=500)
+
+initCrawlerScraper('https://pureportal.coventry.ac.uk/en/organisations/coventry-university/persons/', max_profiles=50)
 
 
 

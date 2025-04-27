@@ -1,45 +1,54 @@
 import ujson
-import nltk #NLTK for natural language processing tasks
-from nltk.corpus import stopwords # list of stop word 
-from nltk.tokenize import word_tokenize # To tokenize each word
-from nltk.stem import PorterStemmer # For specific rules to transform words to their stems
-
-
-# Preprosessing data before indexing
-with open('scraper_results.json', 'r') as doc: scraper_results=doc.read()
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer
+nltk.download('punkt_tab')
+# Preprocessing data before indexing
+with open('scraper_results.json', 'r', encoding='utf-8') as doc:
+    scraper_results = ujson.load(doc)  # Já carrega como objeto Python
 
 # Initialize empty lists to store publication name, URL, author, and date
-    
 pubName = []
 pubURL = []
 pubCUAuthor = []
 pubDate = []
+pubabstract = []
 
-# Load the scraped results using ujson
-data_dict = ujson.loads(scraper_results)
-
-# Get the length of the data_dict (number of publications)
-array_length = len(data_dict)
-# Print the number of publications
+# Get the length of the scraper_results (number of publications)
+array_length = len(scraper_results)
 print(array_length)
 
-#Seperate name, url, date, author in different file
-for item in data_dict:
+# Separate name, url, date, author and abstract into different files
+for item in scraper_results:
     pubName.append(item["name"])
     pubURL.append(item["pub_url"])
     pubCUAuthor.append(item["cu_author"])
     pubDate.append(item["date"])
-with open('pub_name.json', 'w') as f:ujson.dump(pubName, f)
-with open('pub_url.json', 'w') as f:ujson.dump(pubURL, f)
-with open('pub_cu_author.json', 'w') as f:ujson.dump(pubCUAuthor, f)
-with open('pub_date.json', 'w') as f: ujson.dump(pubDate, f)
+    pubabstract.append(item["abstract"])
+
+# Save the separated data into JSON files
+with open('pub_name.json', 'w', encoding='utf-8') as f:
+    ujson.dump(pubName, f, ensure_ascii=False, indent=4)
+
+with open('pub_url.json', 'w', encoding='utf-8') as f:
+    ujson.dump(pubURL, f, ensure_ascii=False, indent=4)
+
+with open('pub_cu_author.json', 'w', encoding='utf-8') as f:
+    ujson.dump(pubCUAuthor, f, ensure_ascii=False, indent=4)
+
+with open('pub_date.json', 'w', encoding='utf-8') as f:
+    ujson.dump(pubDate, f, ensure_ascii=False, indent=4)
+
+with open('pub_abstract.json', 'w', encoding='utf-8') as f:
+    ujson.dump(pubabstract, f, ensure_ascii=False, indent=4)
 
 
-#Open a file with publication names in read mode
-with open('pub_name.json','r') as f:publication=f.read()
+with open('pub_name.json', 'r', encoding='utf-8') as f:
+    publication = f.read()
 
 #Load JSON File
-pubName = ujson.loads(publication)
+
 
 #Downloading libraries to use its methods
 nltk.download('stopwords')

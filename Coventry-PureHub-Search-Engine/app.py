@@ -1,6 +1,7 @@
 import streamlit as st
 from PIL import Image
 import ujson
+import json
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
 from nltk.tokenize import word_tokenize
@@ -34,15 +35,15 @@ with open('author_indexed_dictionary.json', 'r') as f:
     author_index = ujson.load(f)
 with open('author_names.json', 'r') as f:
     author_name = ujson.load(f)
-with open('pub_name.json', 'r') as f:
-    pub_name = ujson.load(f)
+with open('pub_name.json', 'r', encoding='utf-8') as f:
+    pub_name = json.load(f)
 with open('pub_url.json', 'r') as f:
     pub_url = ujson.load(f)
 with open('pub_cu_author.json', 'r') as f:
     pub_cu_author = ujson.load(f)
 with open('pub_date.json', 'r') as f:
     pub_date = ujson.load(f)
-with open('abstracts.json', 'r') as f:
+with open('pub_abstract.json', 'r', encoding='utf-8') as f:
     abstract = ujson.load(f)
 with open('grupo_indexed_dictionary.json', 'r') as f:
     grupo_index = ujson.load(f)
@@ -370,7 +371,7 @@ def show_results(output_data, search_type):
         with cols[n_row % N_cards_per_row]:
             if search_type == "Publications":
                 url = pub_url[id_val]
-                abstract_text = findAbstractByUrl(url, abstract)
+                abstract_text = abstract[id_val]
                 abstract_text = abstract_text[:200] + '...' if len(abstract_text) > 200 else abstract_text
                 st.caption(f"{pub_date[id_val].strip()}")
                 st.markdown(f"**{pub_cu_author[id_val].strip()}**")
